@@ -1,0 +1,1 @@
+Blazor WASM - Apache Kafka version

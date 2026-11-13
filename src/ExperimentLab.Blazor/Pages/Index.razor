@@ -1,0 +1,164 @@
+@page "/"
+@inject HttpClient Http
+
+<PageTitle>IC3 Experiment Lab</PageTitle>
+
+<h3>Create Experiment - Agent-Assisted (Apache Kafka)</h3>
+
+<p>Describe your experiment, run the Designer Agent, then publish to Apache Kafka.</p>
+
+<textarea @bind="prompt" rows="3" style="width:100%;padding:8px" placeholder="Test new checkout button for 10% of users in Canada..." />
+<br /><br />
+<button @onclick="RunDesigner" disabled="@isLoading">Run Designer Agent</button>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <p style="color:red">@error</p>
+}
+@if (!string.IsNullOrEmpty(specJson))
+{
+    <h4>Designer Agent Output</h4>
+    <pre style="background:#f3f3f3;padding:12px;white-space:pre-wrap">@specJson</pre>
+    <button @onclick="Publish">Publish to Apache Kafka</button>
+}
+@if (!string.IsNullOrEmpty(publishMsg))
+{
+    <p style="color:green">@publishMsg</p>
+}
+
+<h3 style="margin-top:32px">Phase 2 - Streaming Pipeline (Kafka events.raw - Airflow - Scorecard)</h3>
+<button @onclick="GenerateEvents">Generate 500 Events to Kafka</button>
+<button @onclick="LoadScorecard">Load Scorecard</button>
+<h3 style="margin-top:32px">Phase 3 - Analyst Agent (Plain-English Recommendation)</h3>
+<button @onclick="LoadAnalystReport">Ask Analyst Agent: Should We Ship?</button>
+@if (!string.IsNullOrEmpty(analystMsg))
+{
+    <pre style="background:#fff7e6;padding:16px;white-space:pre-wrap;border-left:4px solid #ff8c00">@analystMsg</pre>
+}
+
+@if (!string.IsNullOrEmpty(phase2Msg))
+{
+    <pre style="background:#eef6ff;padding:12px;white-space:pre-wrap">@phase2Msg</pre>
+}
+
+@code {
+    private string prompt = "Test new checkout button for 10% of users in Canada";
+    private string? specJson;
+    private string? error;
+    private string? publishMsg;
+    private bool isLoading = false;
+    private string? phase2Msg;
+    private string? analystMsg;
+
+    private async Task RunDesigner()
+    {
+        isLoading = true;
+        error = null;
+        publishMsg = null;
+        try
+        {
+            // FIX: No string interpolation with braces - Razor misparses it.
+            // Use plain concatenation instead.
+            string json = "{\"Prompt\":\"" + prompt.Replace("\"", "") + "\"}";
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PostAsync("/api/experiments/draft", content);
+            if (response.IsSuccessStatusCode)
+            {
+                specJson = await response.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                error = "API returned " + response.StatusCode + ". Is the API running on localhost:5000?";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = "Could not reach API: " + ex.Message + ". Showing demo spec instead.";
+            specJson = "{ \"Name\": \"checkout-button-test\", \"Hypothesis\": \"New checkout button increases conversion\" }";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task GenerateEvents()
+    {
+        try
+        {
+            string json = "{\"ExperimentName\":\"checkout-button-test\",\"Count\":500}";
+            var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PostAsync("/api/events/generate", content);
+            phase2Msg = "Generate: " + response.StatusCode + " - " + await response.Content.ReadAsStringAsync() + "\nCheck Kafka UI (localhost:8085) topic events.raw - you should see 500 messages.";
+        }
+        catch (Exception ex) { phase2Msg = "Generate failed: " + ex.Message; }
+    }
+
+    private async Task LoadScorecard()
+    {
+        try
+        {
+            var response = await Http.GetAsync("/api/scorecards/checkout-button-test");
+            var body = await response.Content.ReadAsStringAsync();
+            if (response.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(body) && body.Trim() != "null")
+            {
+                phase2Msg = "Scorecard (via Airflow pipeline):\n" + body;
+            }
+            else
+            {
+                phase2Msg = "No scorecard yet. Did you click Publish first? Experiments list is empty, so Airflow skipped. Click Publish, then Generate, then Trigger Airflow, then Load Scorecard again. Trying to compute directly...";
+                var c2 = await Http.PostAsync("/api/scorecards/compute?experiment=checkout-button-test", null);
+                var b2 = await c2.Content.ReadAsStringAsync();
+                phase2Msg += "\n\nDirect compute result:\n" + b2;
+            }
+        }
+        catch (Exception ex) { phase2Msg = "Scorecard failed: " + ex.Message; }
+    }
+
+
+    private async Task LoadAnalystReport()
+    {
+        try
+        {
+            var response = await Http.PostAsync("/api/analyst/report?experiment=checkout-button-test", null);
+            var body = await response.Content.ReadAsStringAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                // Simple pretty-print: replace JSON escapes for readability
+                analystMsg = "Analyst Agent Report:\n\n" + body.Replace("{", "\n{").Replace(",", ",\n");
+            }
+            else
+            {
+                analystMsg = "Analyst failed: " + response.StatusCode + " - " + body;
+            }
+        }
+        catch (Exception ex) { analystMsg = "Analyst failed: " + ex.Message; }
+    }
+
+    private async Task Publish()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(specJson))
+            {
+                publishMsg = "Run Designer Agent first - no spec to publish.";
+                return;
+            }
+            var content = new StringContent(specJson, System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.PostAsync("/api/experiments", content);
+            var body = await response.Content.ReadAsStringAsync();
+            if (response.IsSuccessStatusCode)
+            {
+                publishMsg = "Published to Apache Kafka topic experiments.created (kafka:29092). API saved: " + body.Substring(0, Math.Min(200, body.Length));
+            }
+            else
+            {
+                publishMsg = "Publish failed: " + response.StatusCode + " - " + body;
+            }
+        }
+        catch (Exception ex)
+        {
+            publishMsg = "Publish failed: " + ex.Message;
+        }
+    }
+}

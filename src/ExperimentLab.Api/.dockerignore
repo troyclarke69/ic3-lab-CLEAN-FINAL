@@ -1,0 +1,17 @@
+# API .dockerignore - keep build context tiny
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.md
+*.zip
+.env
+.env.*
+appsettings.Development.json
+*.log
+.DS_Store

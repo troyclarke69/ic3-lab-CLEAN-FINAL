@@ -1,0 +1,70 @@
+# .NET / C# - Build outputs
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# NuGet
+*.nupkg
+*.snk
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Docker / Compose
+.docker/
+docker-compose.override.yml
+
+# Env / Secrets - NEVER commit these
+.env
+.env.*
+*.env
+appsettings.Development.json
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.key
+*.pem
+*.crt
+*.cer
+
+# Kafka / Airflow / Postgres data - local volumes only
+kafka-data/
+postgres-data/
+airflow/logs/
+airflow/*.cfg
+airflow/*.db
+airflow/*.pid
+pgdata/
+data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Node (if you add React/Next.js frontend later)
+node_modules/
+.next/
+dist/
+build/
+
+# IC3 Lab - local run artifacts
+*.zip
+ic3-lab-*.zip
+*.tar.gz

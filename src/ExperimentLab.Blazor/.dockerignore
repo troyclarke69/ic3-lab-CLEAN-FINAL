@@ -1,0 +1,17 @@
+# Blazor .dockerignore - keep build context tiny
+bin/
+obj/
+out/
+publish/
+wwwroot/_framework/
+*.user
+*.suo
+.vs/
+.vscode/
+.idea/
+*.md
+*.zip
+.env
+.env.*
+*.log
+.DS_Store

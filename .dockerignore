@@ -1,0 +1,21 @@
+# Root .dockerignore - shared for all builds
+.git/
+.gitignore
+README.md
+agents/
+airflow/
+*.md
+*.zip
+*.tar.gz
+docker-compose*.yml
+.env
+.env.*
+.vs/
+.vscode/
+.idea/
+*.log
+kafka-data/
+postgres-data/
+data/
+.DS_Store
+Thumbs.db
